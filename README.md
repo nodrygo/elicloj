@@ -17,4 +17,5 @@ my simple and stupid Elixir Bencoder [bencodelix]
      response = Repl.cmd(repl, "(+ 5 3)")
 
 ## Resources ##
-* [Elixir website](http://elixir-lang.org/)
+* [Elixir website](http://elixir-lang.org/)  
+* [bencodelix](https://github.com/nodrygo/bencodelix)
