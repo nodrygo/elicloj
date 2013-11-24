@@ -15,7 +15,7 @@ defmodule Elicloj do
   @receivetimeout  2000
 
   # use GenServer.Behaviour
-  defrecord Repl, process: nil, pid: nil, host: "localhost", port: 7889, socket: nil, session: nil
+  defrecord Repl, process: nil, pid: nil, host: "localhost", port: 59258, socket: nil, session: nil
 
   ##### API ######
   @doc """ 
@@ -23,14 +23,19 @@ defmodule Elicloj do
            Connect socket
            return Record Repl
        """
-  def start(host // "localhost" , port // 7889) do
+  def start(host // "localhost" , port // 59258) do
       # run external here  
-      exec = :os.find_executable(String.to_char_list!("lein"))
-      process = :erlang.open_port({:spawn_executable , exec},[{:args, ["repl"]}])
-      pid = "start_link()"
+      exe = :os.find_executable(String.to_char_list!("lein"))
+      IO.puts("Start find exe #{exe}")
+      process = :erlang.open_port({:spawn_executable, exe},[{:args, ["repl"]}])
+      IO.puts("Start find process #{process}")
       {:ok, socket} = :gen_tcp.connect(:erlang.binary_to_list(host), port, [:binary, {:active, false}])
+      IO.puts("Start socket #{socket}")
       repl = Repl.new()
+      pid = start_link(repl)
+      IO.puts("Start link genserver #{pid}")
       repl = repl.update(process: process, host: host, port: port, pid: pid, socket: socket)
+      IO.puts("Start repl #{repl}")
       repl
   end
 
