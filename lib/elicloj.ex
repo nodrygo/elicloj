@@ -15,7 +15,7 @@ defmodule Elicloj do
   @receivetimeout  2000
 
   # use GenServer.Behaviour
-  defrecord Repl, process: nil, pid: nil, host: "localhost", port: 59258, socket: nil, session: nil
+  defrecord Repl, process: nil, pid: nil, host: 'localhost', port: 59258, socket: nil, session: nil
 
   ##### API ######
   @doc """ 
@@ -23,20 +23,23 @@ defmodule Elicloj do
            Connect socket
            return Record Repl
        """
-  def start(host // "localhost" , port // 59258) do
+  def start(host // 'localhost' , port // 59258) do
       # run external here  
       exe = :os.find_executable(String.to_char_list!("lein"))
-      IO.puts("Start find exe #{exe}")
+      IO.puts("Start try start #{exe}")
       process = :erlang.open_port({:spawn_executable, exe},[{:args, ["repl"]}])
-      IO.puts("Start find process #{process}")
-      {:ok, socket} = :gen_tcp.connect(:erlang.binary_to_list(host), port, [:binary, {:active, false}])
-      IO.puts("Start socket #{socket}")
-      repl = Repl.new()
-      pid = start_link(repl)
-      IO.puts("Start link genserver #{pid}")
-      repl = repl.update(process: process, host: host, port: port, pid: pid, socket: socket)
-      IO.puts("Start repl #{repl}")
-      repl
+      IO.puts("Start :gen_tcp.connect")   
+      case :gen_tcp.connect(host, port, [:binary, {:active, false}]) do 
+      {:ok, socket} ->
+          repl = Repl.new()
+          IO.puts("Start GenServer")      
+          pid = start_link(repl)
+          IO.puts("Start create repl")
+          repl = repl.update(process: process, host: host, port: port, pid: pid, socket: socket)
+          IO.puts("Start repl #{repl}")
+          repl
+      _ -> raise "Error connecting on process #{exe} nrepl"    
+    end
   end
 
   @doc """
