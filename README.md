@@ -2,7 +2,9 @@
 
 ## What is this ##
 
-WARNING NOT FINISHED YET do not try to use  
+WARNING NOT FINISHED YET ==> do not try to use it now  
+
+
 Elicloj goal is to connect an Erlang/Elixir process to Clojure nRepl
 
 ## What do you need ? ##
