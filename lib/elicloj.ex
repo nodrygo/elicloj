@@ -54,22 +54,12 @@ defmodule Elicloj do
   @doc """
        send a cmd to REPL return  answer
        """
-  def cmd(:stat, repl) do
-      :gen_server.call(repl.pid(), {:stat, cmd },{repl})
+  def cmd(cmd, repl) do
+      :gen_server.call(repl.pid(), {cmd},{repl})
   end
 
-  def cmd(:newsession, repl) do
-
-      :gen_server.call(repl.pid(), {:newsession},{repl})
-       Bencode.decode(sockresp(repl))
-  end
-
-  def cmd(:cmd, repl, cmd) do
-       :gen_server.call(repl.pid(), {:cmd, cmd },{repl})
-  end
-
-  def cmd(:close, repl, cmd) do
-      :gen_server.call(repl.pid(), {:close},{repl})
+  def cmd(cmd, repl, clojcmd) do
+       :gen_server.call(repl.pid(), {cmd, clojcmd},{repl})
   end
 
   defp sockresp(repl) do
@@ -85,8 +75,8 @@ defmodule Elicloj do
     res
   end
 
-  defp write_read_sock(repl,dic) do
-    case :gen_tcp.send(repl.socket(), dic) do
+  defp write_read_sock(repl, ecmd) do
+    case :gen_tcp.send(repl.socket(), ecmd) do
      :ok -> res =  sockresp(repl.socket())
       _  -> raise "socket cmd failed"
     end
@@ -105,7 +95,7 @@ defmodule Elicloj do
 
   def init(repl) do
      ecmd = Bencode.encode(HashDict.new([op: "clone"]))
-     res = write_read_sock(repl, ecmd, repl)
+     res = write_read_sock(repl, ecmd)
     IO.puts("answer is #{res}")
     {:ok , repl}
   end
@@ -118,25 +108,26 @@ defmodule Elicloj do
 
   def handle_info(:newsession, repl) do
      ecmd = Bencode.encode(HashDict.new([op: "clone"]))
-     res = write_read_sock(repl, ecmd, repl)
+     res = write_read_sock(repl, ecmd)
      {:reply, res, repl }
   end
 
   def handle_info(:interrupt, repl) do
      ecmd = Bencode.encode(HashDict.new([op: "interrupt"]))
-     res = write_read_sock(repl, ecmd, repl)
+     res = write_read_sock(repl, ecmd)
      {:reply, res, repl }
   end
 
   def handle_info(:stat, repl) do
     ecmd = Bencode.encode(HashDict.new([op: "ls-sessions"]))
-    res = write_read_sock(repl, ecmd, repl)
+    res = write_read_sock(repl, ecmd)
     {:reply, res, repl }
   end
 
   def handle_info(:close, repl) do
       # sed stop to nRepl
-      res = write_read_sock(repl,  createCmd("(exit)",repl))
+      ecmd =  Bencode.encode(HashDict.new([op: "eval", code: "(exit)", session: repl.session()]))
+      res = write_read_sock(repl,  ecmd)
       # try close socket
       :ok = :gen_tcp.close(repl.socket)
       # try kill process
