@@ -8,101 +8,92 @@ defmodule Elicloj do
      Repl.stat(repl)
      response = Repl.cmd(repl, "(+ 5 3)")
   """
-  # :erlang.port_info(p)  -> :undefined when killed 
+  # :erlang.port_info(p)  -> :undefined when killed
 	# :erlang.port_close(p)  ne kill pas le process .. ferme juste le port
-	# :erlang.exit(p, :kill)    
+	# :erlang.exit(p, :kill)
 	# :erlang.port_command(p,String.to_char_list!("(quit)"))
   @receivetimeout  2000
 
   # use GenServer.Behaviour
-  defrecord Repl, process: nil, pid: nil, host: 'localhost', port: 59258, socket: nil, session: nil
+  defrecord Repl, process: nil, pid: nil, host: '127.0.0.1', port: 59258, socket: nil, session: nil
 
   ##### API ######
-  @doc """ 
+  @doc """
            Start external nRELP through lein
            Connect socket
            return Record Repl
        """
-  def start(host // 'localhost' , port // 59258) do
-      # run external here  
+  def start( host // '127.0.0.1', port // 12345) do
+      # run external here
       exe = :os.find_executable(String.to_char_list!("lein"))
       IO.puts("Start try start #{exe}")
-      process = :erlang.open_port({:spawn_executable, exe},[{:args, ["repl"]}])
-      IO.puts("Start :gen_tcp.connect")   
-      case :gen_tcp.connect(host, port, [:binary, {:active, false}]) do 
+      process = :erlang.open_port({:spawn_executable, exe},[:binary,{:line, 255}, {:args, ["repl", ":headless"]}])
+      receive do
+         {process, {:data, datas}} ->
+               # d should be nREPL server started on port 55439 on host 127.0.0.1
+                {:eol , res} = datas
+                # res = iolist_to_binary(res)
+                IO.puts("nRepl anwser is:  #{res}")
+                [_ , p] = Regex.run(%r/port ([0-9]+)/, res)
+                {port , _ } = Integer.parse(p)
+      end
+      IO.puts("Start :gen_tcp.connect on port #{port}")
+      case :gen_tcp.connect(host, port, [:binary,{:packet, :line},{:active, false}]) do
       {:ok, socket} ->
           repl = Repl.new()
-          IO.puts("Start GenServer")      
-          pid = start_link(repl)
-          IO.puts("Start create repl")
-          repl = repl.update(process: process, host: host, port: port, pid: pid, socket: socket)
+          IO.puts("Start GenServer")
+          {:ok,_} = start_link(repl)
+          IO.puts("Start create repl ")
+          repl = repl.update(process: process, host: host, port: port, pid: self(), socket: socket)
           IO.puts("Start repl #{repl}")
           repl
-      _ -> raise "Error connecting on process #{exe} nrepl"    
+      _ -> raise "Error connecting on process #{exe} nrepl"
     end
   end
 
   @doc """
-       send a cmd to REPL return  answer 
+       send a cmd to REPL return  answer
        """
-  def stat(Repl[pid: pid] = repl) do
-      IO.puts("Stat for #{pid}")
-      :gen_server.call(repl.pid, :stat)
+  def cmd(:stat, repl) do
+      :gen_server.call(repl.pid(), {:stat, cmd },{repl})
   end
 
-  @doc """
-       send a cmd to REPL return  answer 
-       """
-  def cmd(repl, cmd) do
-      :gen_server.call(repl.pid(), {:cmd, cmd },{repl})
+  def cmd(:newsession, repl) do
+
+      :gen_server.call(repl.pid(), {:newsession},{repl})
+       Bencode.decode(sockresp(repl))
   end
 
-  @doc """
-      send a cmd to REPL return  answer 
-       """
-  def close(repl) do
-      :gen_server.call(repl.pid, :close,  repl)
+  def cmd(:cmd, repl, cmd) do
+       :gen_server.call(repl.pid(), {:cmd, cmd },{repl})
   end
 
-  defp createCmd(cmd,repl) do
-     Bencode.encode(HashDict.new([op: "eval", code: cmd, session: repl.session()]))
+  def cmd(:close, repl, cmd) do
+      :gen_server.call(repl.pid(), {:close},{repl})
   end
 
-  defp createCmdClone() do
-     Bencode.encode(HashDict.new([op: "clone"]))
-  end
-
-  # defp do_recv(s, datas) ->
-  #   case :gen_tcp.recv(sock, 0, @receivetimeout) do
-  #     {:ok, bin} ->
-  #       datas = checkendatas(sock, <<datas/binary, bin/binary>>),
-  #       do_recv(Sock, datas)
-  #     {error, timeout} -> do_recv(sock, datas)
-  #     {error, reason} ->  exit(reason)
-  #    end
-  # end
-
-  defp sockresp(socket) do
-    case :gen_tcp.recv(socket, 0, @receivetimeout) do
+  defp sockresp(repl) do
+    case :gen_tcp.recv(repl.socket, 0, @receivetimeout) do
       {:ok, res} -> Bencode.decode(res)
       {:error, :timeout} -> IO.puts("RECEIVE timeout")
                             res ="TIMEOUT"
-      {:error, :closed}  -> :ok = :gen_tcp.close(socket) 
+      {:error, :closed}  -> :ok = :gen_tcp.close(repl.socket)
                            IO.puts("RECEIVE timeout")
                            res = "KO"
-    end  
+    end
     IO.puts("RECEIVE res #{res}")
-    res                     
-  end  
+    res
+  end
 
   defp write_read_sock(repl,dic) do
     case :gen_tcp.send(repl.socket(), dic) do
      :ok -> res =  sockresp(repl.socket())
-      _  -> raise "socket cmd failed" 
-    end  
-    IO.puts("write_read_sock res #{res}")  
-    res
-  end 
+      _  -> raise "socket cmd failed"
+    end
+    IO.puts("write_read_sock res #{res}")
+    res = Bencode.decode(sockresp(repl))
+    IO.puts("ecoded answer is #{res}")
+  end
 
   # SPAWN
   def start_link(repl) do
@@ -110,25 +101,37 @@ defmodule Elicloj do
   end
 
   ### GEN SERVER PART###
+ # :clone :describe :eval  :interrupt   :load-file(:file)  :ls-sessions
+
   def init(repl) do
-    # "op": "clone"  =>  "status" "done" , "newsession" newsession
-    {:ok, sock} = :gen_tcp.connect(repl.host(),repl.port(),[:binary , {:packet , 0}])
-    repl = repl.socket(sock)
-    res = write_read_sock(repl, createCmdClone())
+     ecmd = Bencode.encode(HashDict.new([op: "clone"]))
+     res = write_read_sock(repl, ecmd, repl)
     IO.puts("answer is #{res}")
     {:ok , repl}
   end
 
   def handle_call({:cmd, cmd}, _from,  repl) do
-      res = write_read_sock(repl, createCmd(cmd,repl))
-      IO.puts("answer is #{res}")
+      ecmd =  Bencode.encode(HashDict.new([op: "eval", code: cmd, session: repl.session()]))
+      res = write_read_sock(repl, ecmd)
       {:reply, res, repl }
   end
 
-  def handle_info(:stat, repl) do
-     res = write_read_sock(repl, createCmd("(println *clojure-version*)",repl))
-     IO.puts("answer is #{res}")
+  def handle_info(:newsession, repl) do
+     ecmd = Bencode.encode(HashDict.new([op: "clone"]))
+     res = write_read_sock(repl, ecmd, repl)
      {:reply, res, repl }
+  end
+
+  def handle_info(:interrupt, repl) do
+     ecmd = Bencode.encode(HashDict.new([op: "interrupt"]))
+     res = write_read_sock(repl, ecmd, repl)
+     {:reply, res, repl }
+  end
+
+  def handle_info(:stat, repl) do
+    ecmd = Bencode.encode(HashDict.new([op: "ls-sessions"]))
+    res = write_read_sock(repl, ecmd, repl)
+    {:reply, res, repl }
   end
 
   def handle_info(:close, repl) do
