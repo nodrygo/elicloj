@@ -2,7 +2,7 @@
 
 ## What is this ##  
 
-WARNING NOT FINISHED YET ==> do not try to use it now  
+!!!!! WARNING NOT FINISHED YET ==> do not try to use it now  !!!!!    
 
 
 Elicloj goal is to connect an Erlang/Elixir process to Clojure nRepl  
@@ -28,12 +28,10 @@ my simple and stupid Elixir Bencoder [bencodelix](https://github.com/nodrygo/ben
     Bencode.decode(Bencode.encode dict)  
 
   * tests Elicloj  
-    repl = Elicloj.start()  
-    response = Elicloj.cmd(:cmd, repl, "(+ 5 3)")  
-    repl1 =  Elicloj.cmd(:newsession)  
-    repl1 =  Elicloj.cmd(:close)  
-    repl1 =  Elicloj.cmd(:quit)  
+    sess = Elicloj.start()   ==> run nrepl  
+    sess = newsession(sess) ==> create session    
+    session(sess) ==> list session            
+    result = exe(clojcmd, sess)  ==> execute clojure cmd & get result   
 
-## Resources ##  
 * [Elixir website](http://elixir-lang.org/)  
 * [bencodelix](https://github.com/nodrygo/bencodelix)  
