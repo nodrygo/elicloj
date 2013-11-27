@@ -21,6 +21,13 @@ need my simple and stupid Elixir Bencoder [bencodelix](https://github.com/nodryg
        - iex  -pa "./ebin" -pa "./deps/bencodelix/ebin"  
     with ELIXIR version >= 0.11.2
        - iex -pa "_build/shared/lib/*/ebin"
+  * load modules  
+    `l Elixir.Bencode`   
+    `l Elixir.Elicloj`
+
+            
+    or better 
+       -  `iex -S mix`    
 
   * load modules  
     `l Elixir.Bencode`   
