@@ -55,7 +55,7 @@ defmodule Elicloj do
       # run external here
       exe = :os.find_executable(String.to_char_list!("lein"))
       IO.puts("Start try start #{exe}")
-      process = :erlang.open_port({:spawn_executable, exe},[:binary,{:line, 255}, {:args, ["sess", ":headless"]}])
+      process = :erlang.open_port({:spawn_executable, exe},[:binary,{:line, 255}, {:args, ["repl", ":headless"]}])
       receive do
          {process, {:data, datas}} ->
                # d should be nsess server started on port 55439 on host 127.0.0.1
@@ -151,7 +151,9 @@ defmodule Elicloj do
 
   def handle_call({:lssession, sess}, _from, repl) do
      ecmd = Bencode.encode(HashDict.new([op:  :'ls-sessions']))
+     IO.puts("send ls-session #{ecm} to socket")
      res = write_read_sock(sess, ecmd)
+     IO.puts("get socket resp #{res}" )     
      {:reply, {:ok, res}, repl }
   end
 

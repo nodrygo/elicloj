@@ -4,7 +4,7 @@ defmodule Elicloj.Mixfile do
   def project do
     [ app: :elicloj,
       version: "0.0.1",
-      elixir: "> 0.11.",
+      elixir: "> 0.11.0",
       deps: deps ]
   end
 
