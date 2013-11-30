@@ -5,6 +5,7 @@ defmodule Elicloj.Mixfile do
     [ app: :elicloj,
       version: "0.0.1",
       elixir: "> 0.11.0",
+      elixirc_paths: ["lib","demo"],      
       deps: deps ]
   end
 
