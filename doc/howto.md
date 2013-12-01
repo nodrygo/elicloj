@@ -3,16 +3,21 @@
 
 ## first start Elixir  
 
-  * `start iex -S mix`       start iex in dev mode  
+  * `start iex -S mix`       start iex in dev mode    
   * `l Elixir.Elicloj`       load elicloj module  
-  * `sess = Elicloj.start`   start server with repl
 
+  first create a session Record  
+  * `sess = Elicloj.start`   start server with repl  
+  then it is better to work with a session clone <I>(not required)</I>   
+  * `{:ok, sess, resp}=Elicloj.clone(sess)`  
   the sess keep info on working socket. sess is needed when calling next api   
+
+  now we can play with API fct
 
 ## API call   
   <i>for  :clone :describe :eval  :interrupt   :load-file(:file)  :ls-sessions</i>   
   [please have a look for nRepl doc commands](https://github.com/clojure/tools.nrepl/blob/master/doc/ops.md)  
-  * `{:ok, sess1, resp}=Elicloj.clone(sess)`         create new session on same repl/socket  
+  * `{:ok, sess1, resp}=Elicloj.clone(sess)`         create new session on same repl/socke  
   * `{:ok, sess , resp}=Elicloj.lssession(sess)`      get current session list  
   * `{:ok, sess , resp}=Elicloj.describe(sess)`       get hash of repl  status   
   * `{:ok, sess , resp}=Elicloj.exec(sess ,"(+ 1 2)")` eval clojure command (cmd is in a string)  

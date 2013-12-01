@@ -1,13 +1,19 @@
 defmodule Eclicloj.Demo do
 @doc """
   Ckeck simple Elicloj call
-  run as   Elicloj.Demo.simpledemo()
+  run as   Elicloj.Demo.Simpledemo.simpledemo()
 """
 @clojcmd """
 (let [after (int (rand 5000))]
   (Thread/sleep after)
     (str  " clojure return after " after " ms"))
 """
+  def cljcode(), do: @clojcmd
+  defmodule Simpledemo do
+
+    @doc """
+    check a simple
+    """
     def simpledemo() do
         # start new repl server
         sess = Elicloj.start()
@@ -40,9 +46,9 @@ defmodule Eclicloj.Demo do
   run as   Elicloj.Demo.Asyncdemo.asyncdemo()
 """
 ######  WARNING CAN'T WORK ... NO MULTIPLE REPL YET
+######  WARNING CAN'T WORK ... NOT FINISHED
 ######  WARNING CAN'T WORK ... NO MULTIPLE REPL YET
-######  WARNING CAN'T WORK ... NO MULTIPLE REPL YET
-######  WARNING CAN'T WORK ... NO MULTIPLE REPL YET
+######  WARNING CAN'T WORK ... NOT FINISHED
 
   defmodule Asyncdemo do
     @doc """
@@ -58,8 +64,8 @@ defmodule Eclicloj.Demo do
 
     def asyncdemo() do
         # start 2 repl server
-        repl1sess1 = Elicloj.start()
-        repl2sess1 = Elicloj.start()
+        repl1sess1 = Elicloj.start(:repl1)
+        repl2sess1 = Elicloj.start(:repl2)
         # start other session in each repl
         repl1sess2 = Elicloj.session(repl1sess1)
         repl2sess2 = Elicloj.session(repl2sess1)

@@ -3,12 +3,13 @@
 ## What is this  
 Elicloj goal is to connect an Erlang/Elixir process to Clojure nRepl  
 
-First working release using simple API   
- - Single REPL multi sessions    
- - Single server     
+First ALPHA RELEASE working using simple API   
+ - Single REPL NO multi sessions    
+ - Single server  
 
 ## TO DO 
- * correct some remaining bugs
+ * correct remaining bugs
+ * better handle of mltiple return from repl 
  * properly terminate and kill repl at end 
  * create multiple server each one with its own REPL  
  * finish and make running the demo code 
