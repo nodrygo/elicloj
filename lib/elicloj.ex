@@ -46,8 +46,8 @@ defmodule Elicloj do
   """
 
   @receivetimeout  2000
-  # @srvdebug []
-  @srvdebug [debug: [:trace]]
+  @srvdebug []
+  # @srvdebug [debug: [:trace]]
 
   use GenServer.Behaviour
 
@@ -107,6 +107,7 @@ defmodule Elicloj do
 
   # decode response and read status
   defp decoderesp(bin) do
+    IO.puts("decoderesp bin #{bin} ")
     if is_bitstring(bin) do 
       decoderesp1(bin)
     else
@@ -114,9 +115,13 @@ defmodule Elicloj do
     end
   end  
 
-  defp decoderesp1(bin)  do 
-    resp = Bencode.decode(bin)
-    if Dict.has_key?(resp,:status)do  
+  defp decoderesp1(bin)  do
+    resp = Bencode.decode(bin) 
+    case is_list(resp) do
+      true -> [resp|_]=:lists.reverse(resp);resp
+       _ -> resp
+    end  
+    if Dict.has_key?(resp,:status) do  
       case Dict.fetch!(resp, :status)|> Enum.filter &(&1 == "done")  do
         ["done"]  -> {:ok, resp}
         _-> {:failed, "decode fail with status #{Dict.fetch!(resp, :status)}" }
@@ -132,6 +137,8 @@ defmodule Elicloj do
     # if we go to fast we get a cached answer
     :timer.sleep(200)
     case :gen_tcp.recv(sock, 0, @receivetimeout ) do
+      {:ok, nil}          -> {:failed, "RECV closed session nil"}
+      {:ok, ""}           -> {:failed, "RECV closed session empty string"}
       {:ok, bin}          -> decoderesp(bin)
       {:error, :timeout}  -> {:failed ,"TIMEOUT"}
       {:error, :closed}   -> :ok = :gen_tcp.close(sock)
