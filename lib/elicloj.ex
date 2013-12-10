@@ -281,8 +281,8 @@ defmodule Elicloj do
   end
 
   # send close to terminate proclist
-  def handle_info(_cmd, _from, _proclist) do
-      {:ok, "Command non implemented" }
+  def handle_info(_cmd, _proclist) do
+      {:ok, "Command not implemented" }
   end
 
   def killproc(proc) do
