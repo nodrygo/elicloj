@@ -1,27 +1,27 @@
 defmodule Elicloj do
 
   @moduledoc """
-  very simple Clojure REPL connector -> Clojure and lein must be in PATH
-  nRepl must be installed
-  goals: start  a repl then use session on it
-  session Record keep info of REPL, Session and socket and is needed on API call
+  very simple Clojure proclist connector -> Clojure and lein must be in PATH
+  nproclist must be installed
+  goals: start  a proclist then use session on it
+  session Record keep info of proclist, Session and socket and is needed on API call
 
   not sure there is a real need for intermediate genserver .. direct call as single client should be enought
-  limit one socket per repl because seem better
+  limit one socket per proclist because seem better
 
 
  HOW TO DO
   * start iex -S mix       start iex in dev mode
   l Elixir.Elicloj       # load elicloj module
-  sess = Elicloj.start   # start server with repl
+  sess = Elicloj.start   # start server with proclist
 
   the sess keep info on working socket. sess is needed when calling next api
 
   API call  for  :clone :describe :eval  :interrupt   :load-file(:file)  :ls-sessions
-  (look at https://github.com/clojure/tools.nrepl/blob/master/doc/ops.md)
-  {:ok,newsess,resp}=Elicloj.clone(sess)       # create new session on same repl/socket
+  (look at https://github.com/clojure/tools.nproclist/blob/master/doc/ops.md)
+  {:ok,newsess,resp}=Elicloj.clone(sess)       # create new session on same proclist/socket
   {:ok,sess,resp}=Elicloj.lssession(sess)      # get current session list
-  {:ok,sess,resp}=Elicloj.describe(sess)       # get hash of repl  status
+  {:ok,sess,resp}=Elicloj.describe(sess)       # get hash of proclist  status
   {:ok,sess,resp}=Elicloj.exec(sess ,"(+ 1 2)") # eval clojure command (cmd is in a string)
   {:ok,sess,resp}=Elicloj.close(sess)         # close current session
   {:ok,sess,resp}=Elicloj.interrupt(sess)     # interrupt current eval
@@ -39,7 +39,7 @@ defmodule Elicloj do
 {:ok,resp} = Elicloj.write_read_sock(sess,ecmd)
 
    INTERNAL SOCKET and others TESTS
-   repl = Elicloj.Repl.new()
+   proclist = Elicloj.proclist.new()
   host='127.0.0.1';port= 42696.....
   {:ok,sock} = :gen_tcp.connect(host, port, [:binary, {:packet, 2},{:active, false}])
   sock=sess.socket()
@@ -55,39 +55,44 @@ defmodule Elicloj do
 
   use GenServer.Behaviour
 
-  defrecord Repl, process: [], host: '127.0.0.1', port: 59258, socket: nil
+  defrecord Procid, extprocid: nil, port: nil, socket: nil
   defrecord Sess, pid: nil, socket: nil, session: nil
 
   ##### API ######
   @doc """
-       create new REPL
+       create new proclist on localhost, start gen server
        return a sess handle
        """
-   def start( host // '127.0.0.1') do
-        repl = Repl.new()
+   def start() do
         sess = Sess.new()
-        {process,port} = start_repl()
-        socket  = start_createsocket(host, port)
-        repl = repl.update(process: [process], host: host, port: port, socket: socket)
-        {:ok,pid} = start_link(repl)
-        sess.update(pid: pid, socket: socket)
+        {proclist,sess} = newpREPL([],sess)
+        {:ok, pid}  = start_link(proclist)
+        sess.update(pid: pid)
    end
 
-  #  start a  REPL external process ==> process
-  defp start_repl() do
+   def newpREPL(proclist,sess) do
+        proc = Procid.new()
+        {extprocid,port} = start_proclist()
+        socket     = start_createsocket('127.0.0.1', port)
+        proc       = proc.update(extprocid: extprocid, port: port, socket: socket)
+        {[proc|proclist], sess.update(socket: socket)}
+   end
+
+  #  start a  proclist external extprocid ==> extprocid
+  defp start_proclist() do
       # run external here
       exe = :os.find_executable(String.to_char_list!("lein"))
       # IO.puts("Start try start #{exe}")
-      process = :erlang.open_port({:spawn_executable, exe},[:binary,{:line, 255}, {:args, ["repl", ":headless"]}])
+      extprocid = :erlang.open_port({:spawn_executable, exe},[:binary,{:line, 255}, {:args, ["repl", ":headless"]}])
       receive do
-         {process, {:data, datas}} ->
+         {extprocid, {:data, datas}} ->
                # d should be nsess server started on port 55439 on host 127.0.0.1
                 {:eol , resp} = datas
                 # resp = iolist_to_binary(resp)
                 [_ , p] = Regex.run(%r/port ([0-9]+)/, resp)
                 {port , _ } = Integer.parse(p)
-                {process,port}
-        _ ->  raise "can't start REPL external process"
+                {extprocid,port}
+        _ ->  raise "can't start proclist external extprocid"
       end
   end
 
@@ -106,10 +111,10 @@ defmodule Elicloj do
   def exec(sess, clojcmd), do:  :gen_server.call(sess.pid(), {:cmd, sess, clojcmd})
   def close(sess),         do:  :gen_server.call(sess.pid(), {:close, sess})
   def interrupt(sess),     do:  :gen_server.call(sess.pid(), {:interrupt, sess})
-  def quit(sess),          do:  :gen_server.call(sess.pid(), {:quit, sess})     # quit this repl
-  def newrepl(sess),       do:  :gen_server.call(sess.pid(), {:newrepl, sess})  # create new repl
+  def quit(sess),          do:  :gen_server.call(sess.pid(), {:quit, sess})     # quit this proclist
+  def newproclist(sess),       do:  :gen_server.call(sess.pid(), {:newproclist, sess})  # create new proclist
   # def loadfile( filename, filepath, sess), do:  :gen_server.call(sess.pid, {:loadfile, sess , filename, filepath})
-
+  # def exec!(sess,clojcmd), do:  :gen_server.call(sess.pid(), {:cmd, sess, clojcmd}) # return direct result of eval or raise an error
 
   # decode response and read status
   defp decoderesp(bin) do
@@ -139,7 +144,7 @@ defmodule Elicloj do
 
   # wait socket answer and Bencode.decode it
   defp sockresp(sock) do
-    # workaround for incomprehensible behaviour (idem on python nrepl)
+    # workaround for incomprehensible behaviour (idem on python nproclist)
     # if we go to fast we got a cached answer
     :timer.sleep(200)
     case :gen_tcp.recv(sock, 0, @receivetimeout ) do
@@ -155,40 +160,40 @@ defmodule Elicloj do
     # IO.puts "try send cmd is #{ecmd}"
     try do
      resp = case :gen_tcp.send(sess.socket(), ecmd) do
-     :ok -> case sockresp(sess.socket()) do
-              {:ok,  bin}   -> {:ok,  bin}
-              {retcode, raison} -> {:failed,"ERROR socket read #{retcode} with raison #{raison}"}
+         :ok -> case sockresp(sess.socket()) do
+                  {:ok,  bin}   -> {:ok,  bin}
+                  {retcode, raison} -> {:failed,"ERROR socket read #{retcode} with raison #{raison}"}
                 end
-      _  ->  {:failed, "socket write cmd failed"}
-    end
+          _  ->  {:failed, "socket write cmd failed"}
+            end
     catch
          message ->  {:failed,"ERROR socket exception with msg #{message}"}
     end
   end
 
-  defp build_answer(sess,ecmd, repl) do
+  defp build_answer(sess,ecmd, proclist) do
     case write_read_sock(sess, ecmd) do
-     {:ok, resp} -> {:reply, {:ok, sess, resp}, repl}
-     {_,raison}  -> {:reply, {:failed, raison , ""}, repl}
-     _ -> {:reply,  {:failed, "unkown answser socket error?"}, repl}
+     {:ok, resp} -> {:proclisty, {:ok, sess, resp}, proclist}
+     {_,raison}  -> {:proclisty, {:failed, raison , ""}, proclist}
+     _ -> {:proclisty,  {:failed, "unkown answser socket error?"}, proclist}
     end
   end
 
   # SPAWN
-  def start_link(repl) do
-    :gen_server.start_link({:local,__MODULE__},__MODULE__,[repl],@srvdebug)
+  def start_link(proclist) do
+    :gen_server.start_link({:local,__MODULE__},__MODULE__,[proclist],@srvdebug)
   end
 
   ### GEN SERVER PART###
 
-  def init(repl) do
-    {:ok , repl}
+  def init(proclist) do
+    {:ok , proclist}
   end
 
   @doc """
-     eval code for a specific repl/session
+     eval code for a specific proclist/session
      """
-  def handle_call({:cmd, sess, clojmd}, _from,  repl) do
+  def handle_call({:cmd, sess, clojmd}, _from,  proclist) do
      ecmd = if sess.session() == nil do
         Bencode.encode(HashDict.new([op: :eval, code: clojmd]))
      else
@@ -200,16 +205,16 @@ defmodule Elicloj do
              session  = Dict.fetch!(resp, :"new-session")
              sess =  sess.session(session)
           end
-            {:reply, {:ok, sess, resp }, repl}
-     {_,raison}  ->  {:reply, {:failed, raison}, repl}
-      _ ->  {:reply, {:failed, "cmd call failed no return"}, repl}
+            {:proclisty, {:ok, sess, resp }, proclist}
+     {_,raison}  ->  {:proclisty, {:failed, raison}, proclist}
+      _ ->  {:proclisty, {:failed, "cmd call failed no return"}, proclist}
      end
   end
 
   @doc """
      clone create new socket with new session
      """
-  def handle_call({:clone, sess}, _from, repl) do
+  def handle_call({:clone, sess}, _from, proclist) do
      ecmd = if sess.session() == nil do
          Bencode.encode(HashDict.new([op: :clone]))
      else
@@ -223,64 +228,74 @@ defmodule Elicloj do
                 session  = Dict.fetch!(resp, :session)
             end
             sess =  sess.session(session)
-            {:reply, {:ok, sess , resp}, repl}
-      _ ->  {:reply, {:failed, "no return"}, repl}
+            {:proclisty, {:ok, sess , resp}, proclist}
+      _ ->  {:proclisty, {:failed, "no return"}, proclist}
      end
   end
 
-  def handle_call({:loadfile, sess , filename, filepath}, _from, repl) do
+  def handle_call({:loadfile, sess , filename, filepath}, _from, proclist) do
      ecmd = Bencode.encode(HashDict.new([op: :"load-file" , "file-name": filename, "file-path": filepath]))
-     build_answer(sess, ecmd, repl)
+     build_answer(sess, ecmd, proclist)
   end
 
-  def handle_call({:lssession, sess}, _from, repl) do
+  def handle_call({:lssession, sess}, _from, proclist) do
      ecmd = Bencode.encode(HashDict.new([op: :"ls-sessions"]))
-     build_answer(sess, ecmd, repl)
+     build_answer(sess, ecmd, proclist)
   end
 
-  def handle_call({:interrupt, sess}, _from, repl) do
+  def handle_call({:interrupt, sess}, _from, proclist) do
      ecmd = Bencode.encode(HashDict.new([op: :interrupt]))
-     build_answer(sess, ecmd, repl)
+     build_answer(sess, ecmd, proclist)
   end
 
-  def handle_call({:describe, sess}, _from, repl) do
+  def handle_call({:describe, sess}, _from, proclist) do
     ecmd = Bencode.encode(HashDict.new([op: :describe]))
-    build_answer(sess, ecmd, repl)
+    build_answer(sess, ecmd, proclist)
   end
 
-  def handle_call({:close, sess}, _from, repl) do
+  def handle_call({:close, sess}, _from, proclist) do
       # send stop to nsess
       if sess.session != nil do
         ecmd =  Bencode.encode(HashDict.new([op: :close, session: sess.session()]))
         case Elicloj.write_read_sock(sess, ecmd) do
            {:ok, resp} -> sess = sess.session(nil)
-                          {:reply, {:ok, sess, resp}, repl}
-           {_,raison}  -> {:reply, {:failed, raison }, repl}
-           _ -> {:reply,  {:failed, "unkown answser .. socket error?"}, repl}
+                          {:proclisty, {:ok, sess, resp}, proclist}
+           {_,raison}  -> {:proclisty, {:failed, raison }, proclist}
+           _ -> {:proclisty,  {:failed, "unkown answser .. socket error?"}, proclist}
         end
       else
-          {:reply,  {:failed, "can't close nil session"}, repl}
+          {:proclisty,  {:failed, "can't close nil session"}, proclist}
       end
   end
 
-  # send close to terminate repl
-  def handle_call({:quit, sess}, _from, repl) do
-    ecmd = Bencode.encode(HashDict.new([op: :describe]))
-    build_answer(sess, ecmd, repl)
+  # create new proclist
+  def handle_call({:newproclist, sess}, _from, proclist) do
+    {newproclist, newsess} = newpREPL(proclist,sess)
+    {:proclisty, {:ok, newsess}, newproclist}
   end
 
+  # send close to terminate proclist
+  def handle_call({:quit, sess}, _from, proclist) do
+    ecmd = Bencode.encode(HashDict.new([op: :describe]))
+    build_answer(sess, ecmd, proclist)
+  end
 
-  end killproc(pid) do
-    # send QUIT to REPL
+  # send close to terminate proclist
+  def handle_info(_cmd, _from, _proclist) do
+      {:ok, "Command non implemented" }
+  end
+
+  def killproc(extprocid) do
+    # send QUIT to proclist
     ecmd = Bencode.encode(HashDict.new([op: :eval, code: "(quit)"]))
-    Elicloj.write_read_sock(sess, ecmd)
-    # kill launcher process
-    {:os_pid, p} = :erlang.port_info(process,:os_pid)
+    # Elicloj.write_read_sock(sess, ecmd)
+    # kill launcher extprocid
+    {:os_pid, p} = :erlang.port_info(extprocid,:os_pid)
     :os.cmd(String.to_char_list! "kill #{p}")
   end
 
-  def terminate(repl) do
-    repl.process |> Enum.each &(killproc(&1))
-    {:noreply, repl}
+  def terminate(proclist) do
+    proclist.extprocid() |> Enum.each &(killproc(&1))
+    {:noproclisty, proclist}
   end
 end
