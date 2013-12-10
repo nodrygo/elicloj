@@ -112,7 +112,7 @@ defmodule Elicloj do
   def close(sess),         do:  :gen_server.call(sess.pid(), {:close, sess})
   def interrupt(sess),     do:  :gen_server.call(sess.pid(), {:interrupt, sess})
   def quit(sess),          do:  :gen_server.call(sess.pid(), {:quit, sess})     # quit this proclist
-  def newproclist(sess),       do:  :gen_server.call(sess.pid(), {:newproclist, sess})  # create new proclist
+  def newproclist(sess),   do:  :gen_server.call(sess.pid(), {:newrepl, sess})  # create new proclist
   # def loadfile( filename, filepath, sess), do:  :gen_server.call(sess.pid, {:loadfile, sess , filename, filepath})
   # def exec!(sess,clojcmd), do:  :gen_server.call(sess.pid(), {:cmd, sess, clojcmd}) # return direct result of eval or raise an error
 
@@ -173,9 +173,9 @@ defmodule Elicloj do
 
   defp build_answer(sess,ecmd, proclist) do
     case write_read_sock(sess, ecmd) do
-     {:ok, resp} -> {:proclisty, {:ok, sess, resp}, proclist}
-     {_,raison}  -> {:proclisty, {:failed, raison , ""}, proclist}
-     _ -> {:proclisty,  {:failed, "unkown answser socket error?"}, proclist}
+     {:ok, resp} -> {:reply, {:ok, sess, resp}, proclist}
+     {_,raison}  -> {:reply, {:failed, raison , ""}, proclist}
+     _ -> {:reply,  {:failed, "unkown answser socket error?"}, proclist}
     end
   end
 
@@ -185,7 +185,6 @@ defmodule Elicloj do
   end
 
   ### GEN SERVER PART###
-
   def init(proclist) do
     {:ok , proclist}
   end
@@ -205,9 +204,9 @@ defmodule Elicloj do
              session  = Dict.fetch!(resp, :"new-session")
              sess =  sess.session(session)
           end
-            {:proclisty, {:ok, sess, resp }, proclist}
-     {_,raison}  ->  {:proclisty, {:failed, raison}, proclist}
-      _ ->  {:proclisty, {:failed, "cmd call failed no return"}, proclist}
+            {:reply, {:ok, sess, resp }, proclist}
+     {_,raison}  ->  {:reply, {:failed, raison}, proclist}
+      _ ->  {:reply, {:failed, "cmd call failed no return"}, proclist}
      end
   end
 
@@ -228,8 +227,8 @@ defmodule Elicloj do
                 session  = Dict.fetch!(resp, :session)
             end
             sess =  sess.session(session)
-            {:proclisty, {:ok, sess , resp}, proclist}
-      _ ->  {:proclisty, {:failed, "no return"}, proclist}
+            {:reply, {:ok, sess , resp}, proclist}
+      _ ->  {:reply, {:failed, "no return"}, proclist}
      end
   end
 
@@ -259,19 +258,19 @@ defmodule Elicloj do
         ecmd =  Bencode.encode(HashDict.new([op: :close, session: sess.session()]))
         case Elicloj.write_read_sock(sess, ecmd) do
            {:ok, resp} -> sess = sess.session(nil)
-                          {:proclisty, {:ok, sess, resp}, proclist}
-           {_,raison}  -> {:proclisty, {:failed, raison }, proclist}
-           _ -> {:proclisty,  {:failed, "unkown answser .. socket error?"}, proclist}
+                          {:reply, {:ok, sess, resp}, proclist}
+           {_,raison}  -> {:reply, {:failed, raison }, proclist}
+           _ -> {:reply,  {:failed, "unkown answser .. socket error?"}, proclist}
         end
       else
-          {:proclisty,  {:failed, "can't close nil session"}, proclist}
+          {:reply,  {:failed, "can't close nil session"}, proclist}
       end
   end
 
   # create new proclist
-  def handle_call({:newproclist, sess}, _from, proclist) do
+  def handle_call({:newrepl, sess}, _from, proclist) do
     {newproclist, newsess} = newpREPL(proclist,sess)
-    {:proclisty, {:ok, newsess}, newproclist}
+    {:reply, {:ok, newsess}, newproclist}
   end
 
   # send close to terminate proclist
@@ -285,6 +284,11 @@ defmodule Elicloj do
       {:ok, "Command not implemented" }
   end
 
+  def terminate(raison, proclist) do
+    proclist.extprocid() |> Enum.each &(killproc(&1))
+    {:reply, proclist}
+  end
+
   def killproc(proc) do
     # send QUIT
     ecmd = Bencode.encode(HashDict.new([op: :eval, code: "(quit)"]))
@@ -295,8 +299,4 @@ defmodule Elicloj do
     :os.cmd(String.to_char_list! "kill #{p}")
   end
 
-  def terminate(proclist) do
-    proclist.extprocid() |> Enum.each &(killproc(&1))
-    {:noproclisty, proclist}
-  end
 end
