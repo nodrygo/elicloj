@@ -4,7 +4,7 @@
 ## first start Elixir  
 
   * `start iex -S mix`       start iex in dev mode    
-  * `l Elixir.Elicloj`       load elicloj module  
+  * `l Elixir.Elicloj`           load elicloj module  
 
   first create a session Record  
   * `sess = Elicloj.start`   start server with repl  
@@ -17,16 +17,15 @@
 ## API call   
   <i>for  :clone :describe :eval  :interrupt   :load-file(:file)  :ls-sessions</i>   
   [please have a look for nRepl doc commands](https://github.com/clojure/tools.nrepl/blob/master/doc/ops.md)  
-  * `{:ok, sess1, resp}=Elicloj.clone(sess)`         create new session on same repl/socke  
+  * `{:ok, sess1, resp}=Elicloj.clone(sess)`          create new session on same repl/socket 
   * `{:ok, sess , resp}=Elicloj.lssession(sess)`      get current session list  
   * `{:ok, sess , resp}=Elicloj.describe(sess)`       get hash of repl  status   
   * `{:ok, sess , resp}=Elicloj.exec(sess ,"(+ 1 2)")` eval clojure command (cmd is in a string)  
   * `{:ok, sess , resp}=Elicloj.close(sess)`         close current session  
-  * `{:ok, sess , resp}=Elicloj.interrupt(sess)`     interrupt current eval  
+  * `{:ok, sess , resp}=Elicloj.interrupt(sess)`     interrupt current eval  in the session
 
   each API answer ether <b>{:ok, sess, resp }</b> OR <b>{:failed, errmsg }</b> 
 
 
-## You can also start with   
-  `iex -pa "_build/shared/lib/*/ebin"` 
-                          
+## You can also start IEX with specific EBIN dir.
+  `iex -pa "_build/shared/lib/*/ebin"`

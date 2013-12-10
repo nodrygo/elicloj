@@ -322,7 +322,7 @@ defmodule Elicloj do
   end
 
   def terminate(_raison, proclist) do
-    proclist.extprocid() |> Enum.each &(killproc(&1))
+    proclist |> Enum.each &(killproc(&1))
     {:reply, "gen server terminated"}
   end
 
