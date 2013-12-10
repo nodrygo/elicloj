@@ -285,12 +285,13 @@ defmodule Elicloj do
       {:ok, "Command non implemented" }
   end
 
-  def killproc(extprocid) do
-    # send QUIT to proclist
+  def killproc(proc) do
+    # send QUIT
     ecmd = Bencode.encode(HashDict.new([op: :eval, code: "(quit)"]))
-    # Elicloj.write_read_sock(sess, ecmd)
+    sess=Sess.new()
+    Elicloj.write_read_sock(sess.socket(proc.socket()), ecmd)
     # kill launcher extprocid
-    {:os_pid, p} = :erlang.port_info(extprocid,:os_pid)
+    {:os_pid, p} = :erlang.port_info(proc,:os_pid)
     :os.cmd(String.to_char_list! "kill #{p}")
   end
 
